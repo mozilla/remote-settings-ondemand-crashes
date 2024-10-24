@@ -45,7 +45,7 @@ if (
 }
 
 const isDryRun = process.env.DRY_RUN == "1";
-const collectionName = "crash-collection-id-test"
+const collectionName = "crash-reports-ondemand"
 const rsCollectionEndpoint = `${process.env.SERVER}/buckets/main-workspace/collections/${collectionName}`;
 const rsRecordsEndpoint = `${rsCollectionEndpoint}/records`;
 const crashPings = "https://crash-pings.mozilla.com";
