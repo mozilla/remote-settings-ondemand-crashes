@@ -1,0 +1,11 @@
+{
+  "name": "remote-settings-ondemand-crashes",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "ingest": "node update_remote_settings_records.mjs"
+  },
+  "devDependencies": {
+    "btoa": "1.2.1",
+    "node-fetch": "^3.2.10"
+  }
+}
