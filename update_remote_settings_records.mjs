@@ -48,7 +48,7 @@ const isDryRun = process.env.DRY_RUN == "1";
 const collectionName = "crash-reports-ondemand"
 const rsCollectionEndpoint = `${process.env.SERVER}/buckets/main-workspace/collections/${collectionName}`;
 const rsRecordsEndpoint = `${rsCollectionEndpoint}/records`;
-const crashPings = "https://crash-pings.mozilla.com";
+const crashPings = "https://crash-pings.mozilla.org";
 const processes = ["gpu", "gmplugin", "rdd", "socket", "utility"];
 // Only use 'nightly' right now, for testing.
 // const channels = ["nightly", "beta", "release"];
@@ -147,7 +147,7 @@ async function getRSRecords() {
 
 function dryRunnable(log, f) {
   return async function(...args) {
-    console.log(isDryRun ? "[DRY_RUN] " : "", typeof log == "string" ? log : ...log(...args));
+    console.log(isDryRun ? "[DRY_RUN] " : "", ...(typeof log == "string" ? [log] : log(...args)));
     if (isDryRun) {
       return true;
     }
@@ -174,7 +174,7 @@ const createRecord = dryRunnable((description) => ["Create", description], async
     );
   }
   return successful;
-};
+});
 
 /**
  * Remove a record on RemoteSettings
