@@ -50,9 +50,7 @@ const rsCollectionEndpoint = `${process.env.SERVER}/buckets/main-workspace/colle
 const rsRecordsEndpoint = `${rsCollectionEndpoint}/records`;
 const crashPings = "https://crash-pings.mozilla.org";
 const processes = ["gpu", "gmplugin", "rdd", "socket", "utility"];
-// Only use 'nightly' right now, for testing.
-// const channels = ["nightly", "beta", "release"];
-const channels = ["nightly"];
+const channels = ["nightly", "beta", "release"];
 
 const headers = {
   "Content-Type": "application/json",
@@ -74,7 +72,8 @@ async function update() {
   const records = await getRSRecords();
 
   const recordsByDescription = new Map(records.map(r => [r.description, r]));
-  let changed = false;
+
+  await deleteAllRecords();
 
   for (const channel of channels) {
     for (const proc of processes) {
@@ -87,33 +86,16 @@ async function update() {
       }
 
       for (const [sighash, {hashes, description}] of Object.entries(topCrashers)) {
-        const rsDescription = `${proc}: ${description}`;
-        if (recordsByDescription.has(rsDescription)) {
-          // Remove so the record remains in RemoteSettings.
-          recordsByDescription.remove(rsDescription);
-        } else {
-          // Add a new record to RemoteSettings.
-          await createRecord(rsDescription, hashes);
-          changed = true;
-        }
-      }
-
-      // Remove any records that are no longer top crashers.
-      for (const record of Object.values(recordsByDescription)) {
-        await deleteRecord(record.id);
-        changed = true;
+        const rsDescription = `${proc} (${channel}): ${description}`;
+        await createRecord(rsDescription, hashes);
       }
     }
   }
 
-  if (!changed) {
-    console.log("No changes detected");
-  } else {
-    console.log("Crash id lists synced ✅");
-    if (process.env.ENVIRONMENT === "dev") {
-      // TODO do this for all environments (with approval)
-      await approveChanges();
-    }
+  console.log("Crash id lists synced ✅");
+  if (process.env.ENVIRONMENT === "dev") {
+    // TODO do this for all environments (with approval)
+    await approveChanges();
   }
 }
 
@@ -147,9 +129,11 @@ async function getRSRecords() {
 
 function dryRunnable(log, f) {
   return async function(...args) {
-    console.log(isDryRun ? "[DRY_RUN] " : "", ...(typeof log == "string" ? [log] : log(...args)));
     if (isDryRun) {
+      console.log("[DRY_RUN]", ...(typeof log == "string" ? [log] : log(...args)));
       return true;
+    } else {
+      console.log(...(typeof log == "string" ? [log] : log(...args)));
     }
     return await f(...args);
   };
@@ -191,6 +175,25 @@ const deleteRecord = dryRunnable(record => ["Delete", record.description], async
   if (!successful) {
     console.warn(
       `Couldn't delete record: "[${response.status}] ${response.statusText}"`
+    );
+  }
+  return successful;
+});
+
+/**
+ * Remove all records on RemoteSettings
+ *
+ * @returns {Boolean} Whether the API call was successful or not
+ */
+const deleteAllRecords = dryRunnable("Delete all records", async () => {
+  const response = await fetch(rsRecordsEndpoint, {
+    method: "DELETE",
+    headers,
+  });
+  const successful = response.status == 200;
+  if (!successful) {
+    console.warn(
+      `Couldn't delete all records: "[${response.status}] ${response.statusText}"`
     );
   }
   return successful;
