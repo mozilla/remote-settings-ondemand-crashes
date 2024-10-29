@@ -96,6 +96,8 @@ async function update() {
   if (process.env.ENVIRONMENT === "dev") {
     // TODO do this for all environments (with approval)
     await approveChanges();
+  } else {
+    await requestReview();
   }
 }
 
@@ -197,6 +199,21 @@ const deleteAllRecords = dryRunnable("Delete all records", async () => {
     );
   }
   return successful;
+});
+
+const requestReview = dryRunnable("Requesting review", async () => {
+  const response = await fetch(rsCollectionEndpoint, {
+    method: "PATCH",
+    body: JSON.stringify({ data: { status: "to-review" } }),
+    headers,
+  });
+  if (response.status === 200) {
+    console.log("Review requested ✅");
+  } else {
+    console.warn(
+      `Couldn't request review: "[${response.status}] ${response.statusText}"`
+    );
+  }
 });
 
 /**
