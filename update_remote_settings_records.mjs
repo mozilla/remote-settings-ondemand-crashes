@@ -12,6 +12,8 @@
 // files and updates the RemoteSettings records to match the current top
 // crashers.
 
+import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import fetch from "node-fetch";
 import btoa from "btoa";
 
@@ -48,7 +50,7 @@ const isDryRun = process.env.DRY_RUN == "1";
 const collectionName = "crash-reports-ondemand"
 const rsCollectionEndpoint = `${process.env.SERVER}/buckets/main-workspace/collections/${collectionName}`;
 const rsRecordsEndpoint = `${rsCollectionEndpoint}/records`;
-const crashPings = "https://crash-pings.mozilla.org";
+const crashPings = "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/mozilla.v2.process-top-crashes.latest.process-pings/artifacts/public/crash-ids.tar.gz";
 const processes = ["gpu", "gmplugin", "rdd", "socket", "utility"];
 const channels = ["nightly", "beta", "release"];
 
@@ -69,9 +71,18 @@ update()
   });
 
 async function update() {
-  const records = await getRSRecords();
+  const sourceLastModified = await getSourceLastModified();
+  const crashIds = await getCrashIds(sourceLastModified);
 
-  const recordsByDescription = new Map(records.map(r => [r.description, r]));
+  if (!crashIds) {
+    console.log(`No changes necessary: crash ids not modified since last update ✅`);
+    return;
+  }
+
+  const { body, last_modified } = crashIds;
+  if (!await unpackTarball(body)) {
+    throw new Error('failed to unpack child-ids tarball');
+  }
 
   await deleteAllRecords();
 
@@ -92,6 +103,8 @@ async function update() {
     }
   }
 
+  await putSourceLastModified(last_modified);
+
   console.log("Crash id lists synced ✅");
   if (process.env.ENVIRONMENT === "dev") {
     // TODO do this for all environments (with approval)
@@ -101,17 +114,55 @@ async function update() {
   }
 }
 
-async function getTopCrashersFor(channel, process) {
-  const jsonUrl = `${crashPings}/${process}_${channel}-crash-ids.json`;
-  console.log(`Get top crashers from ${jsonUrl}`);
+async function getCrashIds(if_modified_since) {
+  console.log(`Get crash ids from ${crashPings}`);
+  const headers = new Headers();
+  if (if_modified_since) {
+    headers.append("If-Modified-Since", if_modified_since);
+  }
+  const response = await fetch(crashPings, {
+    method: 'GET',
+    headers
+  });
+  if (response.status === 304) {
+    console.log(`Crash ids not modified since ${if_modified_since}`);
+    return false;
+  }
+  require200(response, "Can't retrieve crash ids");
 
-  const response = await fetch(jsonUrl);
+  return {
+    body: response.body,
+    last_modified: response.headers.get("Last-Modified"),
+  };
+}
+
+async function unpackTarball(readableStream) {
+  console.log("Unpacking child ids tarball");
+  const child = spawn("tar", ["-xzf", "-"]);
+  readableStream.pipe(child.stdin);
+  return await new Promise((resolve) => {
+    child.on('close', code => {
+      const success = code === 0;
+      if (!success) {
+        console.log(`tar exited with error code ${code}`);
+      }
+      resolve(success);
+    });
+  });
+}
+
+function require200(response, context) {
   if (response.status !== 200) {
     throw new Error(
-      `Can't retrieve top crashers: "[${response.status}] ${response.statusText}"`
+      `${context}: "[${response.status}] ${response.statusText}"`
     );
   }
-  return await response.json();
+}
+
+async function getTopCrashersFor(channel, process) {
+  const path = `crash-ids/${process}_${channel}.json`;
+  console.log(`Get top crashers from ${path}`);
+  return JSON.parse(await readFile(path, { encoding: 'utf8' }));
 }
 
 async function getRSRecords() {
@@ -120,11 +171,7 @@ async function getRSRecords() {
     method: "GET",
     headers,
   });
-  if (response.status !== 200) {
-    throw new Error(
-      `Can't retrieve records: "[${response.status}] ${response.statusText}"`
-    );
-  }
+  require200(response, "Can't retrieve records");
   const { data } = await response.json();
   return data;
 }
@@ -140,6 +187,32 @@ function dryRunnable(log, f) {
     return await f(...args);
   };
 }
+
+async function getSourceLastModified() {
+  console.log(`Get source_last_modified time from ${rsCollectionEndpoint}`);
+  const response = await fetch(rsCollectionEndpoint, {
+    method: "GET",
+    headers,
+  });
+  require200(response, "Can't retrieve source_last_modified");
+  const { data } = await response.json();
+  return data.source_last_modified || false;
+}
+
+const putSourceLastModified = dryRunnable(time => ["Set source_last_modified to ", time], async (source_last_modified) => {
+  const response = await fetch(rsCollectionEndpoint, {
+    method: "PATCH",
+    body: JSON.stringify({ data: { source_last_modified } }),
+    headers,
+  });
+  const successful = response.status == 200;
+  if (!successful) {
+    console.warn(
+      `Couldn't set source_last_modified: "[${response.status}] ${response.statusText}"`
+    );
+  }
+  return successful;
+});
 
 /**
  * Create a record on RemoteSettings
