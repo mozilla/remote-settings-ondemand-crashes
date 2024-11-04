@@ -46,15 +46,15 @@ if (
   process.exit(FAILURE_RET_VALUE);
 }
 
-const isDryRun = process.env.DRY_RUN == "1";
-const collectionName = "crash-reports-ondemand"
-const rsCollectionEndpoint = `${process.env.SERVER}/buckets/main-workspace/collections/${collectionName}`;
-const rsRecordsEndpoint = `${rsCollectionEndpoint}/records`;
-const crashPings = "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/mozilla.v2.process-top-crashes.latest.process-pings/artifacts/public/crash-ids.tar.gz";
-const processes = ["gpu", "gmplugin", "rdd", "socket", "utility"];
-const channels = ["nightly", "beta", "release"];
+const IS_DRY_RUN = process.env.DRY_RUN == "1";
+const COLLECTION_NAME = "crash-reports-ondemand"
+const RS_COLLECTION_ENDPOINT = `${process.env.SERVER}/buckets/main-workspace/collections/${COLLECTION_NAME}`;
+const RS_RECORDS_ENDPOINT = `${RS_COLLECTION_ENDPOINT}/records`;
+const CRASH_PINGS_URL = "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/mozilla.v2.process-top-crashes.latest.process-pings/artifacts/public/crash-ids.tar.gz";
+const PROCESSES = ["gpu", "gmplugin", "rdd", "socket", "utility"];
+const CHANNELS = ["nightly", "beta", "release"];
 
-const headers = {
+const HEADERS = {
   "Content-Type": "application/json",
   Authorization: process.env.AUTHORIZATION.startsWith("Bearer ")
     ? process.env.AUTHORIZATION
@@ -71,23 +71,22 @@ update()
   });
 
 async function update() {
-  const sourceLastModified = await getSourceLastModified();
-  const crashIds = await getCrashIds(sourceLastModified);
+  const lastModified = await getLastModified();
+  const crashIds = await getCrashIds(lastModified);
 
   if (!crashIds) {
     console.log(`No changes necessary: crash ids not modified since last update ✅`);
     return;
   }
 
-  const { body, last_modified } = crashIds;
-  if (!await unpackTarball(body)) {
+  if (!await unpackTarball(crashIds)) {
     throw new Error('failed to unpack child-ids tarball');
   }
 
   await deleteAllRecords();
 
-  for (const channel of channels) {
-    for (const proc of processes) {
+  for (const channel of CHANNELS) {
+    for (const proc of PROCESSES) {
       let topCrashers = {};
       try {
         topCrashers = await getTopCrashersFor(channel, proc);
@@ -103,8 +102,6 @@ async function update() {
     }
   }
 
-  await putSourceLastModified(last_modified);
-
   console.log("Crash id lists synced ✅");
   if (process.env.ENVIRONMENT === "dev") {
     // TODO do this for all environments (with approval)
@@ -115,12 +112,12 @@ async function update() {
 }
 
 async function getCrashIds(if_modified_since) {
-  console.log(`Get crash ids from ${crashPings}`);
+  console.log(`Get crash ids from ${CRASH_PINGS_URL}`);
   const headers = new Headers();
   if (if_modified_since) {
     headers.append("If-Modified-Since", if_modified_since);
   }
-  const response = await fetch(crashPings, {
+  const response = await fetch(CRASH_PINGS_URL, {
     method: 'GET',
     headers
   });
@@ -130,10 +127,7 @@ async function getCrashIds(if_modified_since) {
   }
   require200(response, "Can't retrieve crash ids");
 
-  return {
-    body: response.body,
-    last_modified: response.headers.get("Last-Modified"),
-  };
+  return response.body;
 }
 
 async function unpackTarball(readableStream) {
@@ -166,10 +160,10 @@ async function getTopCrashersFor(channel, process) {
 }
 
 async function getRSRecords() {
-  console.log(`Get existing records from ${rsCollectionEndpoint}`);
-  const response = await fetch(rsRecordsEndpoint, {
+  console.log(`Get existing records from ${RS_COLLECTION_ENDPOINT}`);
+  const response = await fetch(RS_RECORDS_ENDPOINT, {
     method: "GET",
-    headers,
+    headers: HEADERS,
   });
   require200(response, "Can't retrieve records");
   const { data } = await response.json();
@@ -178,7 +172,7 @@ async function getRSRecords() {
 
 function dryRunnable(log, f) {
   return async function(...args) {
-    if (isDryRun) {
+    if (IS_DRY_RUN) {
       console.log("[DRY_RUN]", ...(typeof log == "string" ? [log] : log(...args)));
       return true;
     } else {
@@ -188,31 +182,15 @@ function dryRunnable(log, f) {
   };
 }
 
-async function getSourceLastModified() {
-  console.log(`Get source_last_modified time from ${rsCollectionEndpoint}`);
-  const response = await fetch(rsCollectionEndpoint, {
-    method: "GET",
-    headers,
+async function getLastModified() {
+  console.log(`Get last modified time from ${RS_RECORDS_ENDPOINT}`);
+  const response = await fetch(RS_RECORDS_ENDPOINT, {
+    method: "HEAD",
+    headers: HEADERS,
   });
-  require200(response, "Can't retrieve source_last_modified");
-  const { data } = await response.json();
-  return data.source_last_modified || false;
+  require200(response, "Can't retrieve last modified");
+  return response.headers.get("Last-Modified") || false;
 }
-
-const putSourceLastModified = dryRunnable(time => ["Set source_last_modified to ", time], async (source_last_modified) => {
-  const response = await fetch(rsCollectionEndpoint, {
-    method: "PATCH",
-    body: JSON.stringify({ data: { source_last_modified } }),
-    headers,
-  });
-  const successful = response.status == 200;
-  if (!successful) {
-    console.warn(
-      `Couldn't set source_last_modified: "[${response.status}] ${response.statusText}"`
-    );
-  }
-  return successful;
-});
 
 /**
  * Create a record on RemoteSettings
@@ -221,10 +199,10 @@ const putSourceLastModified = dryRunnable(time => ["Set source_last_modified to 
  * @returns {Boolean} Whether the API call was successful or not
  */
 const createRecord = dryRunnable((description) => ["Create", description], async (description, hashes) => {
-  const response = await fetch(`${rsRecordsEndpoint}`, {
+  const response = await fetch(`${RS_RECORDS_ENDPOINT}`, {
     method: "POST",
     body: JSON.stringify({ data: {description, hashes} }),
-    headers,
+    headers: HEADERS,
   });
   const successful = response.status == 201;
   if (!successful) {
@@ -242,9 +220,9 @@ const createRecord = dryRunnable((description) => ["Create", description], async
  * @returns {Boolean} Whether the API call was successful or not
  */
 const deleteRecord = dryRunnable(record => ["Delete", record.description], async (record) => {
-  const response = await fetch(`${rsRecordsEndpoint}/${record.id}`, {
+  const response = await fetch(`${RS_RECORDS_ENDPOINT}/${record.id}`, {
     method: "DELETE",
-    headers,
+    headers: HEADERS,
   });
   const successful = response.status == 200;
   if (!successful) {
@@ -261,9 +239,9 @@ const deleteRecord = dryRunnable(record => ["Delete", record.description], async
  * @returns {Boolean} Whether the API call was successful or not
  */
 const deleteAllRecords = dryRunnable("Delete all records", async () => {
-  const response = await fetch(rsRecordsEndpoint, {
+  const response = await fetch(RS_RECORDS_ENDPOINT, {
     method: "DELETE",
-    headers,
+    headers: HEADERS,
   });
   const successful = response.status == 200;
   if (!successful) {
@@ -275,10 +253,10 @@ const deleteAllRecords = dryRunnable("Delete all records", async () => {
 });
 
 const requestReview = dryRunnable("Requesting review", async () => {
-  const response = await fetch(rsCollectionEndpoint, {
+  const response = await fetch(RS_COLLECTION_ENDPOINT, {
     method: "PATCH",
     body: JSON.stringify({ data: { status: "to-review" } }),
-    headers,
+    headers: HEADERS,
   });
   if (response.status === 200) {
     console.log("Review requested ✅");
@@ -294,10 +272,10 @@ const requestReview = dryRunnable("Requesting review", async () => {
  * ⚠️ This only works on the `dev` server.
  */
 const approveChanges = dryRunnable("Approving changes", async () => {
-  const response = await fetch(rsCollectionEndpoint, {
+  const response = await fetch(RS_COLLECTION_ENDPOINT, {
     method: "PATCH",
     body: JSON.stringify({ data: { status: "to-sign" } }),
-    headers,
+    headers: HEADERS,
   });
   if (response.status === 200) {
     console.log("Changes approved ✅");
