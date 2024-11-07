@@ -13,7 +13,7 @@
 // crashers.
 
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import fetch from "node-fetch";
 import btoa from "btoa";
 
@@ -87,17 +87,11 @@ async function update() {
 
   for (const channel of CHANNELS) {
     for (const proc of PROCESSES) {
-      let topCrashers = {};
-      try {
-        topCrashers = await getTopCrashersFor(channel, proc);
-      } catch (e) {
-        console.warn(e);
-        continue;
-      }
-
-      for (const [sighash, {hashes, description}] of Object.entries(topCrashers)) {
-        const rsDescription = `${proc} (${channel}): ${description}`;
-        await createRecord(rsDescription, hashes);
+      for await (const topCrashers of getTopCrashersFor(channel, proc)) {
+        for (const [sighash, {hashes, description}] of Object.entries(topCrashers)) {
+          const rsDescription = `${proc} (${channel}): ${description}`;
+          await createRecord(rsDescription, hashes);
+        }
       }
     }
   }
@@ -153,10 +147,21 @@ function require200(response, context) {
   }
 }
 
-async function getTopCrashersFor(channel, process) {
-  const path = `crash-ids/${process}_${channel}.json`;
-  console.log(`Get top crashers from ${path}`);
-  return JSON.parse(await readFile(path, { encoding: 'utf8' }));
+async function* getTopCrashersFor(channel, process) {
+  console.log(`Get top crashers for ${process} ${channel}`);
+  // Some extra files exist (like for utility subprocesses), so read all files
+  // matching the glob `crash-ids/${process}_${channel}*.json`.
+  const files = (await readdir("crash-ids"))
+    .filter(file => file.startsWith(`${process}_${channel}`) && file.endsWith(".json"))
+    .map(file => `crash-ids/${file}`);
+  for (const file of files) {
+      try {
+        yield JSON.parse(await readFile(file, { encoding: 'utf8' }));
+      } catch (e) {
+        console.warn(`failed to read ${file}: ${e}`);
+        continue;
+      }
+  }
 }
 
 async function getRSRecords() {
