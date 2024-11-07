@@ -97,12 +97,7 @@ async function update() {
   }
 
   console.log("Crash id lists synced ✅");
-  if (process.env.ENVIRONMENT === "dev") {
-    // TODO do this for all environments (with approval)
-    await approveChanges();
-  } else {
-    await requestReview();
-  }
+  await approveChanges();
 }
 
 async function getCrashIds(if_modified_since) {
