@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v1.1.1 - 2024-11-08
 - Use node 23 in the docker file.
 
 ## v1.1.0 - 2024-11-07
