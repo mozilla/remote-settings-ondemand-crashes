@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Use node 23 in the docker file.
 
 ## v1.1.0 - 2024-11-07
 - Read crash id files with arbitrary suffixes to support utility ipc actor files.
