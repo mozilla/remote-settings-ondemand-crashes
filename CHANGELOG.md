@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.1.2 - 2024-11-08
 - Run the application as a user with permissions to the `/app` directory.
 - Write tar stdout/stderr to stdout on error.
 
