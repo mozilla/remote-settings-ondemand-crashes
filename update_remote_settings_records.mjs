@@ -128,6 +128,12 @@ async function unpackTarball(readableStream) {
       const success = code === 0;
       if (!success) {
         console.log(`tar exited with error code ${code}`);
+        console.group("tar stdout");
+        console.log(child.stdout.read().toString());
+        console.groupEnd();
+        console.group("tar stderr");
+        console.log(child.stderr.read().toString());
+        console.groupEnd();
       }
       resolve(success);
     });

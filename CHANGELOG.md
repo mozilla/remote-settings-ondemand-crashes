@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Run the application as a user with permissions to the `/app` directory.
+- Write tar stdout/stderr to stdout on error.
 
 ## v1.1.1 - 2024-11-08
 - Use node 23 in the docker file.
