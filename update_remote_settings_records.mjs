@@ -90,6 +90,12 @@ async function update() {
       for await (const topCrashers of getTopCrashersFor(channel, proc)) {
         for (const [sighash, {hashes, description}] of Object.entries(topCrashers)) {
           const rsDescription = `${proc} (${channel}): ${description}`;
+          if (typeof description !== "string") {
+            throw new Error(`malformed description data for ${proc} (${channel}) ${sighash}`);
+          }
+          if (hashes.some(v => typeof v !== "string")) {
+            throw new Error(`malformed hashes data for ${proc} (${channel}) ${description}`);
+          }
           await createRecord(rsDescription, hashes);
         }
       }
@@ -146,6 +152,17 @@ function require200(response, context) {
       `${context}: "[${response.status}] ${response.statusText}"`
     );
   }
+}
+
+async function checkStatus(response, expectedStatus, errorMessage) {
+  const successful = response.status == expectedStatus;
+  if (!successful) {
+    const body = await response.text();
+    console.warn(
+      `${errorMessage}: "[${response.status}] ${response.statusText}" ${body}`
+    );
+  }
+  return successful;
 }
 
 async function* getTopCrashersFor(channel, process) {
@@ -210,13 +227,7 @@ const createRecord = dryRunnable((description) => ["Create", description], async
     body: JSON.stringify({ data: {description, hashes} }),
     headers: HEADERS,
   });
-  const successful = response.status == 201;
-  if (!successful) {
-    console.warn(
-      `Couldn't create record: "[${response.status}] ${response.statusText}"`
-    );
-  }
-  return successful;
+  return await checkStatus(response, 201, "Couldn't create record"); 
 });
 
 /**
@@ -230,13 +241,7 @@ const deleteRecord = dryRunnable(record => ["Delete", record.description], async
     method: "DELETE",
     headers: HEADERS,
   });
-  const successful = response.status == 200;
-  if (!successful) {
-    console.warn(
-      `Couldn't delete record: "[${response.status}] ${response.statusText}"`
-    );
-  }
-  return successful;
+  return await checkStatus(response, 200, "Couldn't delete record");
 });
 
 /**
@@ -249,13 +254,7 @@ const deleteAllRecords = dryRunnable("Delete all records", async () => {
     method: "DELETE",
     headers: HEADERS,
   });
-  const successful = response.status == 200;
-  if (!successful) {
-    console.warn(
-      `Couldn't delete all records: "[${response.status}] ${response.statusText}"`
-    );
-  }
-  return successful;
+  return await checkStatus(response, 200, "Couldn't delete all records");
 });
 
 const requestReview = dryRunnable("Requesting review", async () => {
@@ -264,12 +263,8 @@ const requestReview = dryRunnable("Requesting review", async () => {
     body: JSON.stringify({ data: { status: "to-review" } }),
     headers: HEADERS,
   });
-  if (response.status === 200) {
+  if (await checkStatus(response, 200, "Couldn't request review")) {
     console.log("Review requested ✅");
-  } else {
-    console.warn(
-      `Couldn't request review: "[${response.status}] ${response.statusText}"`
-    );
   }
 });
 
@@ -283,11 +278,7 @@ const approveChanges = dryRunnable("Approving changes", async () => {
     body: JSON.stringify({ data: { status: "to-sign" } }),
     headers: HEADERS,
   });
-  if (response.status === 200) {
+  if (await checkStatus(response, 200, "Couldn't approve changes")) {
     console.log("Changes approved ✅");
-  } else {
-    console.warn(
-      `Couldn't automatically approve changes: "[${response.status}] ${response.statusText}"`
-    );
   }
 });
