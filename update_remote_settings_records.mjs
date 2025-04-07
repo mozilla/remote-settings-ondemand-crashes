@@ -71,8 +71,9 @@ update()
   });
 
 async function update() {
-  const lastModified = await getLastModified();
-  const crashIds = await getCrashIds(lastModified);
+  const { lastModified, data: previousRecords } = await getRSData();
+
+  const crashIds = await getCrashIds(false);
 
   if (!crashIds) {
     console.log(`No changes necessary: crash ids not modified since last update ✅`);
@@ -83,12 +84,12 @@ async function update() {
     throw new Error('failed to unpack child-ids tarball');
   }
 
-  await deleteAllRecords();
-
+  const createdIds = new Set();
   for (const channel of CHANNELS) {
     for (const proc of PROCESSES) {
       for await (const topCrashers of getTopCrashersFor(channel, proc)) {
         for (const [sighash, {hashes, description}] of Object.entries(topCrashers)) {
+          const recordId = `id-${String(createdIds.size).padStart(3, '0')}`;
           const rsDescription = `${proc} (${channel}): ${description}`;
           if (typeof description !== "string") {
             throw new Error(`malformed description data for ${proc} (${channel}) ${sighash}`);
@@ -96,9 +97,17 @@ async function update() {
           if (hashes.some(v => typeof v !== "string")) {
             throw new Error(`malformed hashes data for ${proc} (${channel}) ${description}`);
           }
-          await createRecord(rsDescription, hashes);
+          await upsertRecord(recordId, rsDescription, hashes);
+          createdIds.add(recordId);
         }
       }
+    }
+  }
+
+  // Delete all extraneous records.
+  for (const record of previousRecords) {
+    if (!createdIds.has(record.id)) {
+      await deleteRecord(record);
     }
   }
 
@@ -154,8 +163,10 @@ function require200(response, context) {
   }
 }
 
-async function checkStatus(response, expectedStatus, errorMessage) {
-  const successful = response.status == expectedStatus;
+async function checkStatus(response, expectedStatuses, errorMessage) {
+  const successful = Array.isArray(expectedStatuses)
+    ? expectedStatuses.includes(response.status)
+    : response.status == expectedStatuses;
   if (!successful) {
     const body = await response.text();
     console.warn(
@@ -182,15 +193,16 @@ async function* getTopCrashersFor(channel, process) {
   }
 }
 
-async function getRSRecords() {
-  console.log(`Get existing records from ${RS_COLLECTION_ENDPOINT}`);
+async function getRSData() {
+  console.log(`Get existing data from ${RS_COLLECTION_ENDPOINT}`);
   const response = await fetch(RS_RECORDS_ENDPOINT, {
     method: "GET",
     headers: HEADERS,
   });
   require200(response, "Can't retrieve records");
+  const lastModified = response.headers.get("Last-Modified");
   const { data } = await response.json();
-  return data;
+  return { data, lastModified };
 }
 
 function dryRunnable(log, f) {
@@ -221,14 +233,17 @@ async function getLastModified() {
  * @param {Object} browserMdn: An item from the result of getFlatBrowsersMdnData
  * @returns {Boolean} Whether the API call was successful or not
  */
-const createRecord = dryRunnable((description) => ["Create", description], async (description, hashes) => {
-  const response = await fetch(`${RS_RECORDS_ENDPOINT}`, {
-    method: "POST",
-    body: JSON.stringify({ data: {description, hashes} }),
-    headers: HEADERS,
-  });
-  return await checkStatus(response, 201, "Couldn't create record"); 
-});
+const upsertRecord = dryRunnable(
+  (description) => ["Create", description],
+  async (recordId, description, hashes) => {
+    const response = await fetch(`${RS_RECORDS_ENDPOINT}/${recordId}`, {
+      method: "PUT",
+      body: JSON.stringify({ data: { description, hashes } }),
+      headers: HEADERS,
+    });
+    return await checkStatus(response, [200, 201], "Couldn't create record");
+  },
+);
 
 /**
  * Remove a record on RemoteSettings
@@ -236,13 +251,16 @@ const createRecord = dryRunnable((description) => ["Create", description], async
  * @param {Object} record: The existing record on RemoteSettings
  * @returns {Boolean} Whether the API call was successful or not
  */
-const deleteRecord = dryRunnable(record => ["Delete", record.description], async (record) => {
-  const response = await fetch(`${RS_RECORDS_ENDPOINT}/${record.id}`, {
-    method: "DELETE",
-    headers: HEADERS,
-  });
-  return await checkStatus(response, 200, "Couldn't delete record");
-});
+const deleteRecord = dryRunnable(
+  (record) => ["Delete", record.id, record.description],
+  async (record) => {
+    const response = await fetch(`${RS_RECORDS_ENDPOINT}/${record.id}`, {
+      method: "DELETE",
+      headers: HEADERS,
+    });
+    return await checkStatus(response, 200, "Couldn't delete record");
+  },
+);
 
 /**
  * Remove all records on RemoteSettings
