@@ -1,4 +1,4 @@
-FROM node:23-slim
+FROM oven/bun:1
 
 # add a non-privileged user for running the application
 RUN groupadd --gid 10001 app && \
@@ -6,14 +6,14 @@ RUN groupadd --gid 10001 app && \
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --no-package-lock; \
-  npm cache clean --force
+COPY bun.lock .
+COPY package.json .
+
+RUN bun install --production --frozen-lockfile
 
 # copy sources
-COPY update_remote_settings_records.mjs ./
+COPY src ./src
 
 USER app
 
-# set CMD
-CMD ["node", "update_remote_settings_records.mjs"]
+CMD ["bun", "src/main.ts"]
