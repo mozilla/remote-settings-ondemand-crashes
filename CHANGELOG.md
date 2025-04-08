@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v1.1.5 - 2025-04-08
 - Fix regression in v1.1.4 causing 0-change approvals to be submitted.
 
 ## v1.1.4 - 2025-04-08
