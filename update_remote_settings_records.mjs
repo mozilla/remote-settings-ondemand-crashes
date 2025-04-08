@@ -73,7 +73,7 @@ update()
 async function update() {
   const { lastModified, data: previousRecords } = await getRSData();
 
-  const crashIds = await getCrashIds(false);
+  const crashIds = await getCrashIds(lastModified);
 
   if (!crashIds) {
     console.log(`No changes necessary: crash ids not modified since last update ✅`);

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fix regression in v1.1.4 causing 0-change approvals to be submitted.
 
 ## v1.1.4 - 2025-04-08
 - Re-use record slots to avoid a ton of churn deleting and adding new records in remote settings.
