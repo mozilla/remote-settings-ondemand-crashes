@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v1.1.4 - 2025-04-08
+- Re-use record slots to avoid a ton of churn deleting and adding new records in remote settings.
+
 ## v1.1.3 - 2024-12-02
 - Verify crash-id data and fail if it's not what's expected (otherwise the server will fail when
   validating).
