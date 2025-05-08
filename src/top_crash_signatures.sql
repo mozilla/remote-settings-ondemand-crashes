@@ -16,7 +16,7 @@ signature_single_client as (
         client_info.client_id as client_id,
         signature,
         metrics.string.crash_process_type as process_type,
-        client_info.app_channel as channel,
+        metrics.string.crash_app_channel as channel,
         -- choose a single crash minidump for the client (disregard additional crashes with the same signature from the same client)
         ANY_VALUE(metrics.string.crash_minidump_sha256_hash) as minidump_hash,
         -- os and arch should be the same for any single client_id, so we can pick any
@@ -25,6 +25,7 @@ signature_single_client as (
     join firefox_desktop.desktop_crashes using (document_id, submission_timestamp)
     where submission_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @ping_interval_days DAY)
     and signature != ""
+    and signature != "EMPTY: no frame data available"
     group by all
 ),
 -- count clients per (signature, process_type, channel) that have fewer than the minimum report threshold
