@@ -1,10 +1,14 @@
-# `process-top-crashes` crash ids -> RemoteSettings 
+# Select minidump hashes for on-demand crash reports and insert into Remote Settings
 
-The `process-top-crashes` dashboard outputs JSON files for top crasher ids. These ids should be
-submitted to RemoteSettings for clients to upload the corresponding crash reports.
+This queries BigQuery to determine which signatures are the per-client top-crashers for each
+process-type/channel combination which are under-reported on
+[https://crash-stats.mozilla.org](https://crash-stats.mozilla.org). It then tries to choose a
+diverse set of crashes for each signature (based on client platforms) and aggregates a set of
+minidump hashes for which we are interested in getting reports.
 
-The script from this repo takes these lists of top crasher ids and:
-- adds new records for top crashers which aren't yet on RemoteSettings, and
-- removes any stale records which are no longer top crashers.
+The selected hashes are updated in RemoteSettings, reusing record slots to avoid constant
+creation/destruction of records.
 
-The top crashers are identified by a combination of process type and signature.
+## Environment
+See the comments at the start of [main.ts](src/main.ts) which describe the environment variables
+which influence this script.

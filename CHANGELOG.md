@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Use bun instead of nodejs, rewrite the script in typescript, and directly query BigQuery for data
+  and filtering.
 
 ## v1.1.5 - 2025-04-08
 - Fix regression in v1.1.4 causing 0-change approvals to be submitted.

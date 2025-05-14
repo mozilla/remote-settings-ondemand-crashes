@@ -1,11 +1,14 @@
 {
   "name": "remote-settings-ondemand-crashes",
+  "license": "MPL-2.0",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "ingest": "node update_remote_settings_records.mjs"
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "btoa": "1.2.1",
-    "node-fetch": "^3.2.10"
+    "@types/bun": "^1.2",
+    "typescript": "^5.8"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.9.4"
   }
 }
