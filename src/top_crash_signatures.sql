@@ -100,9 +100,19 @@ diverse_hashes as (
     and a.os = b.platform[0]
     where minidump_hash is not null
     group by all
+),
+-- flatten selected hashes to (signature, process_type, channel, os) groupings
+all_hashes as (
+    select signature, process_type, channel, os, ARRAY_CONCAT_AGG(minidump_hashes) as minidump_hashes
+    from diverse_hashes
+    group by all
 )
 
--- flatten selected hashes to (signature, process_type, channel, os) groupings
-select signature, process_type, channel, os, ARRAY_CONCAT_AGG(minidump_hashes) as minidump_hashes
-from diverse_hashes
-group by all
+-- sample max per top crasher hashes
+select signature, process_type, channel, os, ARRAY(
+        select *
+        from UNNEST(minidump_hashes)
+        where RAND() < @max_hashes_per_top_crasher / ARRAY_LENGTH(minidump_hashes)
+        limit @max_hashes_per_top_crasher
+    ) as minidump_hashes
+from all_hashes

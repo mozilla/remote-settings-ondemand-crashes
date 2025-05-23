@@ -19,11 +19,20 @@ const TOP_CRASH_QUERY_PARAMS = {
   // Period over which we count signature ping clients.
   ping_interval_days: 7,
   // Take the top N signatures by client count.
+  // Top crashers are partitioned by process-type, os, and channel. Thus, the
+  // total number of top crashers will be this number multiplied by (approx.)
+  // 8*4*3 (respectively) = 96 (as of this writing).
   top_crasher_count: 10,
   // The minimum number of reports for a signature to disqualify it.
   report_minimum: 10,
-  // The maximum number of hashes to select for a particular signature and platform.
-  max_hashes_per_config: 100,
+  // The maximum number of hashes to select for a particular
+  // platform (os,osversion,architecture) per top crasher.
+  max_hashes_per_config: 50,
+  // The maximum number of hashes to select for a particular top-crasher
+  // (sampling from the larger set of per-configuration hashes). We rerun this
+  // selection process every day, so this number doesn't have to be very large
+  // (as time passes more users will have a chance to submit crashes).
+  max_hashes_per_top_crasher: 30,
 };
 
 export type SignatureHashes = {
