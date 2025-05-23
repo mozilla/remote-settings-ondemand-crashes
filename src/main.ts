@@ -52,6 +52,10 @@ async function main() {
   if (!forceUpdate && lastModified && !await sigData.newDataSince(new Date(lastModified))) {
     console.log(`No changes necessary: crash ids not modified since last update (${lastModified}) ✅`);
     return;
+  } else if (forceUpdate) {
+    console.log("Forcing update");
+  } else {
+    console.log(`Crash ids modified since ${lastModified}, recalculating top crashers`);
   }
 
   const newData = await sigData.selectHashes();
