@@ -1,7 +1,7 @@
 # Select minidump hashes for on-demand crash reports and insert into Remote Settings
 
 This queries BigQuery to determine which signatures are the per-client top-crashers for each
-process-type/channel combination which are under-reported on
+process-type/channel/os combination which are under-reported on
 [https://crash-stats.mozilla.org](https://crash-stats.mozilla.org). It then tries to choose a
 diverse set of crashes for each signature (based on client platforms) and aggregates a set of
 minidump hashes for which we are interested in getting reports.
