@@ -30,6 +30,7 @@ export type SignatureHashes = {
   signature: string,
   process_type: string,
   channel: string,
+  os: string,
   minidump_hashes: string[]
 };
 

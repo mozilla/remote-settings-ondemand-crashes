@@ -57,13 +57,17 @@ async function main() {
   const newData = await sigData.selectHashes();
   // Generate record ids arbitrarily to reuse records rather than create and
   // delete many on each update.
+  let totalHashes = 0;
   const createdIds = new Set();
-  for (const { signature, process_type, channel, minidump_hashes: hashes } of newData) {
+  for (const { signature, process_type, channel, os, minidump_hashes: hashes } of newData) {
     const recordId = `id-${String(createdIds.size).padStart(3, '0')}`;
-    const description = `${process_type} (${channel}): ${signature}`;
+    const description = `${process_type} (${os} ${channel}): ${signature}`;
     await rsUpdater.upsertRecord({ recordId, description, hashes });
     createdIds.add(recordId);
+    totalHashes += hashes.length;
   }
+
+  console.debug(`Selected ${totalHashes} hashes`);
 
   // Delete all extraneous records.
   for (const record of previousRecords) {
