@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v1.2.0 - 2025-05-27
 - Use bun instead of nodejs, rewrite the script in typescript, and directly query BigQuery for data
   and filtering.
 
