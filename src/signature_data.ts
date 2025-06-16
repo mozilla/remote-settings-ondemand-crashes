@@ -5,7 +5,8 @@
 import { BigQuery } from "@google-cloud/bigquery";
 import { readFile } from "node:fs/promises";
 
-const BIGQUERY_PROJECT_ID = "moz-fx-data-shared-prod";
+const BIGQUERY_PROD_PROJECT_ID = "moz-fx-remote-settings-prod";
+const BIGQUERY_NONPROD_PROJECT_ID = "moz-fx-remote-settings-nonprod";
 
 const NEW_DATA_QUERY = `
 select COUNT(*) as count
@@ -46,8 +47,8 @@ export type SignatureHashes = {
 export default class SignatureData {
   readonly #client: BigQuery;
 
-  constructor() {
-    this.#client = new BigQuery({ projectId: BIGQUERY_PROJECT_ID });
+  constructor(prod: boolean) {
+    this.#client = new BigQuery({ projectId: prod ? BIGQUERY_PROD_PROJECT_ID : BIGQUERY_NONPROD_PROJECT_ID });
   }
 
   async newDataSince(date: Date): Promise<boolean> {

@@ -45,7 +45,7 @@ async function main() {
     environment: process.env["ENVIRONMENT"] as any, // verified above
     dry_run: process.env["DRY_RUN"] === "1",
   });
-  const sigData = new SignatureData();
+  const sigData = new SignatureData(process.env["ENVIRONMENT"] === "prod");
 
   const { data: previousRecords, lastModified } = await rsUpdater.getExistingRemoteData();
 

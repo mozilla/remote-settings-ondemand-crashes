@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Use the remote settings google cloud projects so that the SAs will have appropriate job creation
+  permissions.
 
 ## v1.2.0 - 2025-05-27
 - Use bun instead of nodejs, rewrite the script in typescript, and directly query BigQuery for data

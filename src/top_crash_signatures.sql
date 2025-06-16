@@ -11,7 +11,7 @@ report_counts as (
         end) as os,
         release_channel as channel,
         COUNT(*) as report_count
-    from telemetry.socorro_crash
+    from moz-fx-data-shared-prod.telemetry.socorro_crash
     where TIMESTAMP(crash_date) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @report_interval_days DAY)
     group by all
 ),
@@ -24,7 +24,7 @@ desktop as (
         IFNULL(metrics.string.crash_app_channel, client_info.app_channel) as channel,
         metrics.string.crash_minidump_sha256_hash as minidump_hash,
         (normalized_os, normalized_os_version, client_info.architecture) as platform
-    from firefox_desktop.desktop_crashes
+    from moz-fx-data-shared-prod.firefox_desktop.desktop_crashes
 ),
 android as (
     select
@@ -35,7 +35,7 @@ android as (
         IFNULL(metrics.string.crash_app_channel, client_info.app_channel) as channel,
         metrics.string.crash_minidump_sha256_hash as minidump_hash,
         (normalized_os, normalized_os_version, client_info.architecture) as platform
-    from fenix.crash
+    from moz-fx-data-shared-prod.fenix.crash
 ),
 -- gather unique (client, signature, process_type, channel) from pings
 signature_single_client as (
