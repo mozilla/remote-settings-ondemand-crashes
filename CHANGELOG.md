@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v1.2.1 - 2025-06-16
 - Use the remote settings google cloud projects so that the SAs will have appropriate job creation
   permissions.
 
