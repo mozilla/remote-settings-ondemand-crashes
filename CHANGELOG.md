@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v1.2.3 - 2025-06-17
+- Add the new remote settings github workflow for publishing.
+
 ## v1.2.2 - 2025-06-16
 - Use the default google cloud project to simplify BigQuery client creation.
 
