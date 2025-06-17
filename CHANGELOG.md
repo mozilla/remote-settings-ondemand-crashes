@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v1.2.2 - 2025-06-16
 - Use the default google cloud project to simplify BigQuery client creation.
 
 ## v1.2.1 - 2025-06-16
