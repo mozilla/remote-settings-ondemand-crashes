@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Use the `telemetry.firefox_crashes` view instead of the separate desktop/fenix views. See
+  DENG-8594.
 
 ## v1.2.3 - 2025-06-17
 - Add the new remote settings github workflow for publishing.

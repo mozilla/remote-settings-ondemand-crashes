@@ -15,41 +15,19 @@ report_counts as (
     where TIMESTAMP(crash_date) >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @report_interval_days DAY)
     group by all
 ),
-desktop as (
-    select
-        document_id,
-        submission_timestamp,
-        client_info.client_id as client_id,
-        metrics.string.crash_process_type as process_type,
-        IFNULL(metrics.string.crash_app_channel, client_info.app_channel) as channel,
-        metrics.string.crash_minidump_sha256_hash as minidump_hash,
-        (normalized_os, normalized_os_version, client_info.architecture) as platform
-    from moz-fx-data-shared-prod.firefox_desktop.desktop_crashes
-),
-android as (
-    select
-        document_id,
-        submission_timestamp,
-        client_info.client_id as client_id,
-        metrics.string.crash_process_type as process_type,
-        IFNULL(metrics.string.crash_app_channel, client_info.app_channel) as channel,
-        metrics.string.crash_minidump_sha256_hash as minidump_hash,
-        (normalized_os, normalized_os_version, client_info.architecture) as platform
-    from moz-fx-data-shared-prod.fenix.crash
-),
 -- gather unique (client, signature, process_type, channel) from pings
 signature_single_client as (
     select
-        client_id,
+        client_info.client_id as client_id,
         signature,
-        process_type,
-        channel,
+        metrics.string.crash_process_type as process_type,
+        crash_app_channel as channel,
         -- choose a single crash minidump for the client (disregard additional crashes with the same signature from the same client)
-        ANY_VALUE(minidump_hash) as minidump_hash,
+        ANY_VALUE(metrics.string.crash_minidump_sha256_hash) as minidump_hash,
         -- platform should be the same for any single client_id, so we can pick any
-        ANY_VALUE(platform) as platform
+        ANY_VALUE((normalized_os, normalized_os_version, client_info.architecture)) as platform
     from moz-fx-data-shared-prod.crash_ping_ingest_external.ingest_output
-    join (select * from desktop union all select * from android) using (document_id, submission_timestamp)
+    join moz-fx-data-shared-prod.telemetry.firefox_crashes using (document_id, submission_timestamp)
     where submission_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @ping_interval_days DAY)
     and signature != ""
     and signature != "EMPTY: no frame data available"
