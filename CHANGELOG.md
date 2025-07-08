@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v1.2.4 - 2025-07-08
 - Use the `telemetry.firefox_crashes` view instead of the separate desktop/fenix views. See
   DENG-8594.
 
